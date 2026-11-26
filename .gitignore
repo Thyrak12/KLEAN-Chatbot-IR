@@ -1,0 +1,41 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.local
+
+# Vector database binaries & local models
+vector_db/*.bin
+vector_db/*.index
+!vector_db/.gitkeep
+
+# Outputs and logs
+outputs/*
+!outputs/.gitkeep
+*.log
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/

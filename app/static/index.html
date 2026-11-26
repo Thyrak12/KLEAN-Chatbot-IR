@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KLEAN — Phnom Penh Restaurant AI Chat</title>
+
+  <!-- Google Fonts: Inter & Khmer Battambang -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Battambang:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Marked.js for Real-Time Markdown Parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Leaflet CSS & JS for Interactive Map Drawer -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <style>
+    :root {
+      --bg-chat: #212121;
+      --bg-sidebar: #171717;
+      --bg-card: #2f2f2f;
+      --bg-card-hover: #383838;
+      --bg-input: #2f2f2f;
+      --border: #383838;
+      --border-light: #444;
+      --text-main: #ececec;
+      --text-muted: #b4b4b4;
+      --text-dim: #737373;
+      --primary: #10a37f;
+      --primary-hover: #0e8c6d;
+      --accent-blue: #3b82f6;
+      --user-bubble: #2f2f2f;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', 'Battambang', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-chat);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ================= SIDEBAR ================= */
+    #sidebar {
+      width: 260px;
+      background: var(--bg-sidebar);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      transition: transform 0.25s ease, width 0.25s ease;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    #sidebar.collapsed {
+      transform: translateX(-100%);
+      width: 0;
+      border-right: none;
+    }
+
+    .sidebar-header {
+      padding: 14px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #fff;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #10a37f, #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+    }
+
+    .new-chat-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 12px;
+      padding: 10px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .new-chat-btn:hover {
+      background: var(--bg-card);
+      border-color: var(--border-light);
+    }
+
+    .history-section {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 8px;
+    }
+
+    .history-section-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      padding: 8px 8px 4px 8px;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      margin-bottom: 2px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-item:hover, .history-item.active {
+      background: var(--bg-card);
+      color: var(--text-main);
+    }
+
+    .history-item-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .history-delete-btn {
+      opacity: 0;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 2px 4px;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+
+    .history-item:hover .history-delete-btn {
+      opacity: 1;
+    }
+
+    .history-delete-btn:hover {
+      color: #ef4444;
+    }
+
+    .sidebar-footer {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .sidebar-pill-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-main);
+      font-size: 0.84rem;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      transition: background 0.15s;
+    }
+
+    .sidebar-pill-btn:hover {
+      background: var(--bg-card);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      padding: 4px 8px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10a37f;
+      box-shadow: 0 0 8px rgba(16, 163, 127, 0.6);
+    }
+
+    .status-dot.disconnected {
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    }
+
+    /* ================= MAIN CHAT CONTAINER ================= */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      position: relative;
+      background: var(--bg-chat);
+    }
+
+    /* Top Bar */
+    header {
+      height: 52px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      background: var(--bg-chat);
+      z-index: 50;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .icon-btn:hover {
+      background: var(--bg-card);
+      color: var(--text-main);
+    }
+
+    .model-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-main);
+      background: transparent;
+      border: none;
+    }
+
+    .model-tag {
+      background: rgba(16, 163, 127, 0.15);
+      color: #10a37f;
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(16, 163, 127, 0.3);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Messages Thread */
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 0 32px 0;
+      scroll-behavior: smooth;
+    }
+
+    .chat-inner {
+      max-width: 768px;
+      margin: 0 auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Welcome Hero */
+    .welcome-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10vh;
+      text-align: center;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .welcome-avatar {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10a37f, #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 24px rgba(16, 163, 127, 0.3);
+    }
+
+    .welcome-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .welcome-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      max-width: 480px;
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+
+    .suggestions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    .suggestion-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    }
+
+    .suggestion-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-light);
+      transform: translateY(-2px);
+    }
+
+    .suggestion-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .suggestion-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* Message Rows */
+    .message-row {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .message-row.user {
+      justify-content: flex-end;
+    }
+
+    .message-bubble {
+      max-width: 85%;
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    .message-row.user .message-bubble {
+      background: var(--user-bubble);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 20px 20px 4px 20px;
+    }
+
+    .message-row.assistant .message-bubble {
+      flex: 1;
+      color: var(--text-main);
+    }
+
+    .bot-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #10a37f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      color: #fff;
+    }
+
+    /* Live Status Step */
+    .chat-status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 163, 127, 0.1);
+      border: 1px solid rgba(16, 163, 127, 0.2);
+      color: #10a37f;
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(16, 163, 127, 0.3);
+      border-top-color: #10a37f;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Source Cards (Retrieved Restaurants) */
+    .sources-container {
+      margin: 12px 0 16px 0;
+    }
+
+    .sources-header {
+      font-size: 0.76rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sources-cards-row {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .sources-cards-row::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .sources-cards-row::-webkit-scrollbar-thumb {
+      background: var(--border-light);
+      border-radius: 4px;
+    }
+
+    .source-mini-card {
+      min-width: 220px;
+      max-width: 240px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .source-mini-card:hover {
+      border-color: #10a37f;
+      transform: translateY(-2px);
+    }
+
+    .source-mini-name {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .source-mini-category {
+      font-size: 0.72rem;
+      color: #10a37f;
+      font-weight: 500;
+    }
+
+    .source-mini-address {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .source-mini-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .source-mini-btn {
+      background: rgba(16, 163, 127, 0.15);
+      border: 1px solid rgba(16, 163, 127, 0.3);
+      color: #10a37f;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .source-mini-btn:hover {
+      background: rgba(16, 163, 127, 0.25);
+    }
+
+    .source-score-badge {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    /* Markdown Styling Inside Assistant */
+    .prose p {
+      margin-bottom: 12px;
+    }
+
+    .prose p:last-child {
+      margin-bottom: 0;
+    }
+
+    .prose ul, .prose ol {
+      margin: 8px 0 14px 20px;
+    }
+
+    .prose li {
+      margin-bottom: 6px;
+    }
+
+    .prose strong {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .prose h1, .prose h2, .prose h3 {
+      color: #fff;
+      margin: 16px 0 8px 0;
+    }
+
+    /* Cursor during streaming */
+    .streaming-cursor {
+      display: inline-block;
+      width: 7px;
+      height: 15px;
+      background: #10a37f;
+      vertical-align: middle;
+      margin-left: 2px;
+      animation: blink 0.8s infinite;
+    }
+
+    .message-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .copy-btn:hover {
+      color: var(--text-main);
+      background: var(--bg-card);
+    }
+
+    /* ================= BOTTOM INPUT BAR ================= */
+    .chat-bottom {
+      padding: 12px 16px 20px 16px;
+      background: linear-gradient(180deg, transparent, var(--bg-chat) 20%);
+    }
+
+    .input-box-wrapper {
+      max-width: 768px;
+      margin: 0 auto;
+      background: var(--bg-input);
+      border: 1px solid var(--border-light);
+      border-radius: 24px;
+      padding: 8px 14px 8px 18px;
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .input-box-wrapper:focus-within {
+      border-color: #666;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    #user-prompt {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      resize: none;
+      max-height: 200px;
+      min-height: 24px;
+      padding: 4px 0;
+    }
+
+    #user-prompt::placeholder {
+      color: var(--text-dim);
+    }
+
+    .send-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #444;
+      border: none;
+      color: #999;
+      cursor: not-allowed;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
+      flex-shrink: 0;
+      margin-bottom: 1px;
+    }
+
+    .send-btn.active {
+      background: #fff;
+      color: #000;
+      cursor: pointer;
+    }
+
+    .send-btn.active:hover {
+      transform: scale(1.05);
+    }
+
+    .send-btn.stop {
+      background: #fff;
+      color: #000;
+      cursor: pointer;
+    }
+
+    .input-disclaimer {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      margin-top: 8px;
+    }
+
+    /* ================= MAP DRAWER / MODAL ================= */
+    #map-modal {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 480px;
+      height: 100vh;
+      background: var(--bg-sidebar);
+      border-left: 1px solid var(--border);
+      box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #map-modal.open {
+      transform: translateX(0);
+    }
+
+    .map-modal-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .map-modal-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #leaflet-map {
+      flex: 1;
+      width: 100%;
+    }
+
+    .map-info-panel {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: var(--bg-sidebar);
+    }
+
+    /* Custom Map Popup styling */
+    .leaflet-popup-content-wrapper {
+      background: var(--bg-card) !important;
+      color: var(--text-main) !important;
+      border-radius: 8px !important;
+      border: 1px solid var(--border) !important;
+    }
+    .leaflet-popup-tip {
+      background: var(--bg-card) !important;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    @media (max-width: 768px) {
+      #sidebar {
+        position: fixed;
+        height: 100vh;
+      }
+      #map-modal {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="brand-icon">🍽️</div>
+        <span>KLEAN Phnom Penh</span>
+      </div>
+      <button class="icon-btn" id="sidebar-close-btn" title="Close sidebar">✕</button>
+    </div>
+
+    <button class="new-chat-btn" id="new-chat-btn">
+      <span>＋</span> New chat
+    </button>
+
+    <div class="history-section">
+      <div class="history-section-title">Recent Chats</div>
+      <div id="chat-history-list">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-pill-btn" id="open-map-btn">
+        <span>🗺️</span> View Phnom Penh Map
+      </button>
+      <button class="sidebar-pill-btn" id="clear-chats-btn">
+        <span>🗑️</span> Clear all conversations
+      </button>
+      <div class="status-badge">
+        <div class="status-dot" id="ws-status-dot"></div>
+        <span id="ws-status-text">Connected to Hybrid RRF</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN CHAT ================= -->
+  <main id="main">
+    <!-- Header -->
+    <header>
+      <div class="header-left">
+        <button class="icon-btn" id="toggle-sidebar-btn" title="Toggle sidebar">☰</button>
+        <div class="model-selector">
+          <span>KLEAN Chatbot</span>
+          <span class="model-tag">Hybrid RRF · DeepSeek</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn" id="header-map-btn" title="Open Map">🗺️</button>
+      </div>
+    </header>
+
+    <!-- Message Stream -->
+    <div id="chat-messages">
+      <div class="chat-inner" id="messages-inner">
+        <!-- Welcome Screen (shown when thread is empty) -->
+        <div class="welcome-container" id="welcome-screen">
+          <div class="welcome-avatar">🍜</div>
+          <h1 class="welcome-title">What are you craving in Phnom Penh?</h1>
+          <p class="welcome-subtitle">
+            Powered by our final <strong>Hybrid Information Retrieval</strong> (BM25 + FAISS Vector Search via RRF) and grounded by DeepSeek LLM.
+          </p>
+          <div class="suggestions-grid">
+            <div class="suggestion-card" onclick="sendQuickPrompt('Best authentic Khmer breakfast with Bai Sach Chrouk in Phnom Penh')">
+              <div class="suggestion-title">🇰🇭 Khmer Breakfast</div>
+              <div class="suggestion-desc">Authentic Bai Sach Chrouk and local morning dishes</div>
+            </div>
+            <div class="suggestion-card" onclick="sendQuickPrompt('Delicious noodle soup or Kuy Teav near Daun Penh')">
+              <div class="suggestion-title">🍜 Famous Noodle Soup</div>
+              <div class="suggestion-desc">Kuy Teav and Pho spots in Daun Penh & Central Market</div>
+            </div>
+            <div class="suggestion-card" onclick="sendQuickPrompt('Romantic dinner place with cozy vibes and cocktails in BKK1')">
+              <div class="suggestion-title">🌿 Romantic Dinner</div>
+              <div class="suggestion-desc">Cozy ambiance, wine & dining in Boeung Keng Kang 1</div>
+            </div>
+            <div class="suggestion-card" onclick="sendQuickPrompt('Quiet coffee shop with fast WiFi for laptop work in Toul Kork')">
+              <div class="suggestion-title">☕ Quiet Work Cafe</div>
+              <div class="suggestion-desc">Comfortable seating, great coffee & fast WiFi</div>
+            </div>
+          </div>
+        </div>
+        <!-- Chat bubbles appended here -->
+      </div>
+    </div>
+
+    <!-- Bottom Input -->
+    <div class="chat-bottom">
+      <div class="input-box-wrapper">
+        <textarea id="user-prompt" rows="1" placeholder="Ask about restaurants, cuisines, vibes, or neighborhoods in Phnom Penh..."></textarea>
+        <button class="send-btn" id="send-btn" title="Send message">↑</button>
+      </div>
+      <div class="input-disclaimer">
+        KLEAN uses Hybrid IR (BM25 + FAISS) grounded strictly on verified Phnom Penh restaurant records.
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= MAP DRAWER ================= -->
+  <div id="map-modal">
+    <div class="map-modal-header">
+      <div class="map-modal-title">
+        <span>🗺️</span> Phnom Penh Restaurant Map
+      </div>
+      <button class="icon-btn" id="close-map-btn">✕</button>
+    </div>
+    <div id="leaflet-map"></div>
+    <div class="map-info-panel" id="map-info-panel">
+      Click "View on Map" on any recommended restaurant card to center and zoom in.
+    </div>
+  </div>
+
+  <script>
+    // ================= STATE & CONFIG =================
+    const STORAGE_KEY = "klean_chat_sessions_v2";
+    let sessions = [];
+    let currentSessionId = null;
+    let ws = null;
+    let isGenerating = false;
+    let currentStreamingBubble = null;
+    let currentStreamingText = "";
+    let map = null;
+    let mapMarkers = [];
+
+    // ================= WEBSOCKET SETUP =================
+    function initWebSocket() {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = window.location.host;
+      const wsUrl = `${protocol}//${host}/ws/chat`;
+
+      const dot = document.getElementById("ws-status-dot");
+      const text = document.getElementById("ws-status-text");
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        dot.classList.remove("disconnected");
+        text.innerText = "Connected to Hybrid RRF";
+      };
+
+      ws.onclose = () => {
+        dot.classList.add("disconnected");
+        text.innerText = "Reconnecting...";
+        setTimeout(initWebSocket, 2000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("WebSocket error:", err);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleWebSocketMessage(msg);
+        } catch (e) {
+          console.error("Failed to parse WS message:", event.data, e);
+        }
+      };
+    }
+
+    // ================= WEBSOCKET MESSAGE HANDLER =================
+    function handleWebSocketMessage(msg) {
+      if (msg.type === "connected") {
+        console.log("WS Handshake:", msg);
+      } else if (msg.type === "status") {
+        updateStreamingStatus(msg.message);
+      } else if (msg.type === "sources") {
+        renderSourceCards(msg.data, msg.retrieval_method);
+      } else if (msg.type === "chunk") {
+        appendStreamChunk(msg.content);
+      } else if (msg.type === "done") {
+        finishStreaming(msg);
+      } else if (msg.type === "error") {
+        appendStreamChunk(`\n\n> ⚠️ **Error:** ${msg.message}`);
+        finishStreaming({ latency_ms: 0 });
+      }
+    }
+
+    // ================= CHAT SESSIONS & STORAGE =================
+    function loadSessions() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        sessions = raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        sessions = [];
+      }
+      if (sessions.length === 0) {
+        createNewSession();
+      } else {
+        currentSessionId = sessions[0].id;
+        renderHistoryList();
+        renderCurrentSessionMessages();
+      }
+    }
+
+    function saveSessions() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+      } catch (e) {
+        console.error("Failed to save sessions to localStorage", e);
+      }
+    }
+
+    function createNewSession() {
+      const newSession = {
+        id: "sess_" + Date.now(),
+        title: "New conversation",
+        createdAt: new Date().toISOString(),
+        messages: []
+      };
+      sessions.unshift(newSession);
+      currentSessionId = newSession.id;
+      saveSessions();
+      renderHistoryList();
+      renderCurrentSessionMessages();
+    }
+
+    function getCurrentSession() {
+      return sessions.find(s => s.id === currentSessionId) || sessions[0];
+    }
+
+    function renderHistoryList() {
+      const list = document.getElementById("chat-history-list");
+      list.innerHTML = "";
+
+      sessions.forEach(sess => {
+        const item = document.createElement("div");
+        item.className = `history-item ${sess.id === currentSessionId ? "active" : ""}`;
+        item.onclick = () => switchSession(sess.id);
+
+        const title = document.createElement("div");
+        title.className = "history-item-title";
+        title.innerText = sess.title || "Conversation";
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "history-delete-btn";
+        delBtn.innerText = "✕";
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteSession(sess.id);
+        };
+
+        item.appendChild(title);
+        item.appendChild(delBtn);
+        list.appendChild(item);
+      });
+    }
+
+    function switchSession(sessionId) {
+      if (isGenerating) return;
+      currentSessionId = sessionId;
+      renderHistoryList();
+      renderCurrentSessionMessages();
+    }
+
+    function deleteSession(sessionId) {
+      sessions = sessions.filter(s => s.id !== sessionId);
+      if (sessions.length === 0) {
+        createNewSession();
+      } else {
+        currentSessionId = sessions[0].id;
+        saveSessions();
+        renderHistoryList();
+        renderCurrentSessionMessages();
+      }
+    }
+
+    function clearAllSessions() {
+      if (confirm("Clear all conversations?")) {
+        sessions = [];
+        localStorage.removeItem(STORAGE_KEY);
+        createNewSession();
+      }
+    }
+
+    // ================= RENDER MESSAGES =================
+    function renderCurrentSessionMessages() {
+      const session = getCurrentSession();
+      const container = document.getElementById("messages-inner");
+      const welcome = document.getElementById("welcome-screen");
+
+      // Clear existing messages
+      const existingRows = container.querySelectorAll(".message-row");
+      existingRows.forEach(r => r.remove());
+
+      if (!session || session.messages.length === 0) {
+        welcome.style.display = "flex";
+      } else {
+        welcome.style.display = "none";
+        session.messages.forEach(msg => {
+          if (msg.role === "user") {
+            appendUserBubble(msg.content, false);
+          } else {
+            appendAssistantBubble(msg.content, msg.sources, msg.latency_ms, false);
+          }
+        });
+      }
+      scrollToBottom();
+    }
+
+    function appendUserBubble(text, save = true) {
+      document.getElementById("welcome-screen").style.display = "none";
+      const container = document.getElementById("messages-inner");
+
+      const row = document.createElement("div");
+      row.className = "message-row user";
+      row.innerHTML = `<div class="message-bubble">${escapeHtml(text)}</div>`;
+      container.appendChild(row);
+
+      if (save) {
+        const sess = getCurrentSession();
+        sess.messages.push({ role: "user", content: text });
+        if (sess.messages.length === 1) {
+          sess.title = text.slice(0, 30) + (text.length > 30 ? "..." : "");
+          renderHistoryList();
+        }
+        saveSessions();
+      }
+
+      scrollToBottom();
+    }
+
+    function startAssistantStream() {
+      const container = document.getElementById("messages-inner");
+
+      const row = document.createElement("div");
+      row.className = "message-row assistant";
+
+      row.innerHTML = `
+        <div class="bot-avatar">🍜</div>
+        <div class="message-bubble">
+          <div class="chat-status-indicator" id="current-status-badge">
+            <div class="status-spinner"></div>
+            <span id="current-status-text">Searching Phnom Penh restaurants with Hybrid IR...</span>
+          </div>
+          <div class="sources-container" id="current-sources-container" style="display:none;"></div>
+          <div class="prose" id="current-prose-content"></div>
+          <span class="streaming-cursor" id="current-cursor"></span>
+          <div class="message-meta" id="current-meta" style="display:none;"></div>
+        </div>
+      `;
+
+      container.appendChild(row);
+      currentStreamingBubble = row;
+      currentStreamingText = "";
+      scrollToBottom();
+    }
+
+    function updateStreamingStatus(text) {
+      const statusText = document.getElementById("current-status-text");
+      if (statusText) statusText.innerText = text;
+    }
+
+    function renderSourceCards(sources, method) {
+      const sourcesContainer = document.getElementById("current-sources-container");
+      if (!sourcesContainer || !sources || sources.length === 0) return;
+
+      sourcesContainer.style.display = "block";
+      let cardsHtml = `
+        <div class="sources-header">
+          <span>⚡</span> Grounded Sources (${sources.length} matching places · ${method || 'Hybrid RRF'})
+        </div>
+        <div class="sources-cards-row">
+      `;
+
+      sources.forEach(s => {
+        cardsHtml += `
+          <div class="source-mini-card">
+            <div class="source-mini-name">${escapeHtml(s.name)}</div>
+            <div class="source-mini-category">${escapeHtml(s.category || 'Restaurant')}</div>
+            <div class="source-mini-address">${escapeHtml(s.address || 'Phnom Penh')}</div>
+            <div class="source-mini-actions">
+              <span class="source-score-badge">Score: ${s.score || '0.00'}</span>
+              <button class="source-mini-btn" onclick="focusRestaurantOnMap(${s.latitude}, ${s.longitude}, '${escapeJs(s.name)}', '${escapeJs(s.address || '')}', '${escapeJs(s.phone || '')}')">
+                📍 Map
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      cardsHtml += `</div>`;
+      sourcesContainer.innerHTML = cardsHtml;
+      scrollToBottom();
+    }
+
+    function appendStreamChunk(chunk) {
+      currentStreamingText += chunk;
+      const prose = document.getElementById("current-prose-content");
+      if (prose) {
+        prose.innerHTML = marked.parse(currentStreamingText);
+      }
+      scrollToBottom();
+    }
+
+    function finishStreaming(doneEvent) {
+      isGenerating = false;
+      toggleSendButtonState();
+
+      // Remove status badge and cursor
+      const statusBadge = document.getElementById("current-status-badge");
+      if (statusBadge) statusBadge.remove();
+
+      const cursor = document.getElementById("current-cursor");
+      if (cursor) cursor.remove();
+
+      // Show metadata footer
+      const meta = document.getElementById("current-meta");
+      if (meta) {
+        meta.style.display = "flex";
+        meta.innerHTML = `
+          <span>⚡ ${doneEvent.latency_ms || 0}ms</span>
+          <span>·</span>
+          <span>${doneEvent.retrieval_method || 'Hybrid RRF'}</span>
+          <span>·</span>
+          <button class="copy-btn" onclick="copyToClipboard(this)">📋 Copy</button>
+        `;
+      }
+
+      // Save to session
+      const sess = getCurrentSession();
+      sess.messages.push({
+        role: "assistant",
+        content: currentStreamingText,
+        latency_ms: doneEvent.latency_ms
+      });
+      saveSessions();
+
+      currentStreamingBubble = null;
+      currentStreamingText = "";
+    }
+
+    function appendAssistantBubble(text, sources, latency_ms, save = true) {
+      const container = document.getElementById("messages-inner");
+      const row = document.createElement("div");
+      row.className = "message-row assistant";
+
+      const parsedHtml = marked.parse(text);
+
+      let sourcesHtml = "";
+      if (sources && sources.length > 0) {
+        sourcesHtml = `
+          <div class="sources-container">
+            <div class="sources-header"><span>⚡</span> Grounded Sources (${sources.length} places)</div>
+            <div class="sources-cards-row">
+              ${sources.map(s => `
+                <div class="source-mini-card">
+                  <div class="source-mini-name">${escapeHtml(s.name)}</div>
+                  <div class="source-mini-category">${escapeHtml(s.category || 'Restaurant')}</div>
+                  <div class="source-mini-address">${escapeHtml(s.address || '')}</div>
+                  <div class="source-mini-actions">
+                    <button class="source-mini-btn" onclick="focusRestaurantOnMap(${s.latitude}, ${s.longitude}, '${escapeJs(s.name)}', '${escapeJs(s.address || '')}', '${escapeJs(s.phone || '')}')">📍 Map</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      row.innerHTML = `
+        <div class="bot-avatar">🍜</div>
+        <div class="message-bubble">
+          ${sourcesHtml}
+          <div class="prose">${parsedHtml}</div>
+          <div class="message-meta">
+            ${latency_ms ? `<span>⚡ ${latency_ms}ms</span><span>·</span>` : ''}
+            <span>Hybrid RRF · DeepSeek</span>
+            <span>·</span>
+            <button class="copy-btn" onclick="copyToClipboard(this)">📋 Copy</button>
+          </div>
+        </div>
+      `;
+
+      container.appendChild(row);
+      scrollToBottom();
+    }
+
+    // ================= SEND ACTION =================
+    function sendMessage() {
+      const input = document.getElementById("user-prompt");
+      const query = input.value.trim();
+
+      if (!query || isGenerating) return;
+
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert("WebSocket is reconnecting. Please wait a second and try again.");
+        return;
+      }
+
+      appendUserBubble(query, true);
+
+      input.value = "";
+      adjustTextareaHeight(input);
+      isGenerating = true;
+      toggleSendButtonState();
+
+      startAssistantStream();
+
+      // Send payload over WebSocket
+      ws.send(JSON.stringify({
+        query: query,
+        top_k: 3,
+        temperature: 0.3
+      }));
+    }
+
+    function sendQuickPrompt(promptText) {
+      if (isGenerating) return;
+      const input = document.getElementById("user-prompt");
+      input.value = promptText;
+      sendMessage();
+    }
+
+    // ================= UI HELPERS =================
+    function toggleSendButtonState() {
+      const btn = document.getElementById("send-btn");
+      const input = document.getElementById("user-prompt");
+
+      if (isGenerating) {
+        btn.classList.add("stop");
+        btn.innerText = "■";
+        btn.title = "Generating...";
+      } else {
+        btn.classList.remove("stop");
+        btn.innerText = "↑";
+        if (input.value.trim().length > 0) {
+          btn.classList.add("active");
+          btn.title = "Send message";
+        } else {
+          btn.classList.remove("active");
+          btn.title = "";
+        }
+      }
+    }
+
+    function scrollToBottom() {
+      const chat = document.getElementById("chat-messages");
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function adjustTextareaHeight(textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = Math.min(textarea.scrollHeight, 200) + "px";
+      toggleSendButtonState();
+    }
+
+    function copyToClipboard(btn) {
+      const bubble = btn.closest(".message-bubble");
+      const prose = bubble.querySelector(".prose");
+      if (prose) {
+        navigator.clipboard.writeText(prose.innerText).then(() => {
+          btn.innerText = "✓ Copied!";
+          setTimeout(() => btn.innerText = "📋 Copy", 2000);
+        });
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag] || tag));
+    }
+
+    function escapeJs(str) {
+      if (!str) return "";
+      return str.replace(/['"\\]/g, '\\$&').replace(/\n/g, ' ');
+    }
+
+    // ================= LEAFLET MAP DRAWER =================
+    function initMap() {
+      if (map) return;
+      map = L.map('leaflet-map').setView([11.5564, 104.9282], 13);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        maxZoom: 19
+      }).addTo(map);
+    }
+
+    function openMapDrawer() {
+      const modal = document.getElementById("map-modal");
+      modal.classList.add("open");
+      initMap();
+      setTimeout(() => map.invalidateSize(), 300);
+    }
+
+    function closeMapDrawer() {
+      const modal = document.getElementById("map-modal");
+      modal.classList.remove("open");
+    }
+
+    function focusRestaurantOnMap(lat, lon, name, address, phone) {
+      openMapDrawer();
+      if (!lat || !lon) return;
+
+      map.flyTo([lat, lon], 16, { duration: 1.2 });
+
+      // Add pin
+      const marker = L.marker([lat, lon]).addTo(map);
+      marker.bindPopup(`
+        <div style="font-weight:600; font-size:14px; margin-bottom:4px; color:#fff;">${name}</div>
+        <div style="font-size:12px; color:#b4b4b4; margin-bottom:4px;">${address}</div>
+        ${phone ? `<div style="font-size:12px; color:#10a37f;">📞 ${phone}</div>` : ''}
+      `).openPopup();
+
+      mapMarkers.push(marker);
+      document.getElementById("map-info-panel").innerHTML = `
+        <strong>📍 Focused:</strong> ${name} (${address})
+      `;
+    }
+
+    // ================= EVENT LISTENERS =================
+    document.addEventListener("DOMContentLoaded", () => {
+      initWebSocket();
+      loadSessions();
+
+      const promptInput = document.getElementById("user-prompt");
+      promptInput.addEventListener("input", () => adjustTextareaHeight(promptInput));
+      promptInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      document.getElementById("send-btn").addEventListener("click", sendMessage);
+      document.getElementById("new-chat-btn").addEventListener("click", createNewSession);
+      document.getElementById("clear-chats-btn").addEventListener("click", clearAllSessions);
+
+      // Sidebar toggles
+      const sidebar = document.getElementById("sidebar");
+      document.getElementById("toggle-sidebar-btn").addEventListener("click", () => {
+        sidebar.classList.toggle("collapsed");
+      });
+      document.getElementById("sidebar-close-btn").addEventListener("click", () => {
+        sidebar.classList.add("collapsed");
+      });
+
+      // Map Drawer buttons
+      document.getElementById("open-map-btn").addEventListener("click", openMapDrawer);
+      document.getElementById("header-map-btn").addEventListener("click", openMapDrawer);
+      document.getElementById("close-map-btn").addEventListener("click", closeMapDrawer);
+    });
+  </script>
+</body>
+</html>
